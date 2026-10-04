@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "FxAudioSlider.h"
 #include "FxBalanceSlider.h"
 #include "FxOutputPreference.h"
+#include "FxComboBox.h"
 
 //==============================================================================
 /*
@@ -101,7 +102,9 @@ private:
 		static constexpr int GROUP_MARGIN = 10;
 		static constexpr int ENDPOINT_Y = 50;
 		static constexpr int LABEL_WIDTH = 220;
-		static constexpr int OUTPUT_PREFERENCE_HEIGHT = 260;
+		static constexpr int OUTPUT_PREFERENCE_HEIGHT = 220;
+		static constexpr int EXCLUSIVE_OUTPUT_LIST_WIDTH = 260;
+		static constexpr int EXCLUSIVE_OUTPUT_LIST_HEIGHT = 26;
 		static constexpr int LABEL_HEIGHT = 14;
 		static constexpr int TOGGLE_BUTTON_HEIGHT = 30;
 		static constexpr int RESET_PRESETS_BUTTON_WIDTH = 220;
@@ -110,6 +113,7 @@ private:
 
 		void setText();
 		void resizeResetButton(int x, int y);
+		void updateExclusiveOutputList();
 
 		void visibilityChanged() override;
 		void mouseEnter(const MouseEvent& mouse_event) override;
@@ -118,6 +122,9 @@ private:
 		Label output_preference_title_;
 		FxOutputPreference output_preference_;
 		ToggleButton prioritize_new_output_toggle_;
+		Label exclusive_output_title_;
+		FxComboBox exclusive_output_list_;
+		StringArray exclusive_output_names_;
 
 		TextButton reset_presets_button_;
 

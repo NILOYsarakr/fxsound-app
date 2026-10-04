@@ -1021,8 +1021,16 @@ void FxController::setPowerState(bool power_state)
 	
 	main_window_->enablePowerButton(true);
 
-	FxModel::getModel().setPowerState(power_state);	
-	powerOn(power_state);
+	FxModel::getModel().setPowerState(power_state);
+	if (power_state && !isProcessingAllowed(getOutputName()))
+	{
+		// Power is on, but processing is restricted to a different output device
+		bypassOutput();
+	}
+	else
+	{
+		powerOn(power_state);
+	}
 	settings_.setBool("power", power_state);
 
 	system_tray_view_->setStatus(power_state, audio_process_on_);
@@ -1136,6 +1144,11 @@ void FxController::setOutput(const String output_device_id, bool notify)
 				FxModel::getModel().setSelectedOutput(sound_device, notify);
 				setOutputName(sound_device.deviceFriendlyName.c_str());
 
+				if (FxModel::getModel().getPowerState() && !isProcessingAllowed(getOutputName()))
+				{
+					message += "\n" + TRANS("FxSound is off for this device");
+				}
+
 				if (!isTimerRunning())
 				{
 					// FxSound is off and the selected output device is the default playback device
@@ -1173,8 +1186,15 @@ void FxController::setOutput(const String output_device_id, bool notify)
 	{
 		if (FxModel::getModel().getPowerState())
 		{
-			powerOn(true);
-			audio_passthru_->mute(false);
+			if (isProcessingAllowed(getOutputName()))
+			{
+				powerOn(true);
+				audio_passthru_->mute(false);
+			}
+			else
+			{
+				bypassOutput();
+			}
 		}
 	}
 
@@ -1656,6 +1676,12 @@ void FxController::selectProcessingOutput(std::vector<SoundDevice>& sound_device
 					setPreset(device_config.preset, false);
 				}
 
+				if (!isProcessingAllowed(getOutputName()))
+				{
+					bypassOutput();
+					system_tray_view_->setStatus(FxModel::getModel().getPowerState(), isAudioProcessing());
+				}
+
 				break;
 			}
 		}
@@ -1698,6 +1724,15 @@ void FxController::syncOutputWithSystemDefault(std::vector<SoundDevice>& sound_d
 			if (device_config.preset.isNotEmpty())
 			{
 				setPreset(device_config.preset, false);
+			}
+
+			// Processing was bypassed for another output device, resume it now that the allowed device is the default
+			if (FxModel::getModel().getPowerState() && dfx_enabled_ && !SysInfo::isRemoteSession() &&
+				getExclusiveOutput().isNotEmpty() && isProcessingAllowed(getOutputName()))
+			{
+				powerOn(true);
+				audio_passthru_->mute(false);
+				system_tray_view_->setStatus(true, isAudioProcessing());
 			}
 
 			default_device_found = true;
@@ -1745,6 +1780,44 @@ void FxController::powerOn(bool on)
 		}
 
 		audio_passthru_->restoreDefaultPlaybackDevice();
+	}
+}
+
+// Processing is allowed on every output device unless it is restricted to a single device
+bool FxController::isProcessingAllowed(const String& output_device_name)
+{
+	auto exclusive_output = getExclusiveOutput();
+
+	return exclusive_output.isEmpty() || exclusive_output == output_device_name;
+}
+
+// Stops processing while keeping the power state on, so the selected output device plays the audio unprocessed
+void FxController::bypassOutput()
+{
+	powerOn(false);
+
+	// Restoring the default playback device may pick a different device, so make the selected output the default
+	for (auto& output_device : active_output_devices_)
+	{
+		if (getOutputName() == output_device.deviceFriendlyName.c_str())
+		{
+			audio_passthru_->setAsPlaybackDevice(output_device);
+			break;
+		}
+	}
+
+	audio_process_on_counter_ = 0;
+	audio_process_off_counter_ = 0;
+	if (audio_process_on_)
+	{
+		audio_process_on_ = false;
+		main_window_->setIcon(true, false);
+		main_window_->stopLogoAnimation();
+		if (view_ == ViewType::Pro)
+		{
+			main_window_->showProView();
+			main_window_->pauseVisualizer();
+		}
 	}
 }
 
@@ -2750,6 +2823,36 @@ bool FxController::isNewOutputPrioritized()
 void FxController::setNewOutputPrioritized(bool prioritize)
 {
 	settings_.setBool("prioritize_new_output", prioritize);
+}
+
+String FxController::getExclusiveOutput()
+{
+	return settings_.getString("exclusive_output_device");
+}
+
+void FxController::setExclusiveOutput(const String& output_device_name)
+{
+	settings_.setString("exclusive_output_device", output_device_name);
+
+	if (!FxModel::getModel().getPowerState() || !dfx_enabled_ || SysInfo::isRemoteSession())
+	{
+		return;
+	}
+
+	if (isProcessingAllowed(getOutputName()))
+	{
+		if (!isTimerRunning() && isOutputDeviceConnected(getOutputName()))
+		{
+			powerOn(true);
+			audio_passthru_->mute(false);
+		}
+	}
+	else if (isTimerRunning())
+	{
+		bypassOutput();
+	}
+
+	system_tray_view_->setStatus(true, isAudioProcessing());
 }
 
 FxThemeMode FxController::getThemeMode()

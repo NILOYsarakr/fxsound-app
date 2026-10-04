@@ -207,6 +207,19 @@ FxSettingsDialog::AudioSettingsPane::AudioSettingsPane() :
 	prioritize_new_output_toggle_.setToggleState(FxController::getInstance().isNewOutputPrioritized(), NotificationType::dontSendNotification);
 	prioritize_new_output_toggle_.onClick = [this]() { FxController::getInstance().setNewOutputPrioritized(prioritize_new_output_toggle_.getToggleState()); };
 
+	exclusive_output_title_.setColour(Label::ColourIds::textColourId, getLookAndFeel().findColour(TextButton::textColourOnId));
+	exclusive_output_title_.setJustificationType(Justification::centredLeft);
+
+	exclusive_output_list_.setWantsKeyboardFocus(true);
+	exclusive_output_list_.onChange = [this]() {
+		auto index = exclusive_output_list_.getSelectedItemIndex();
+		if (index >= 0 && index < exclusive_output_names_.size())
+		{
+			FxController::getInstance().setExclusiveOutput(exclusive_output_names_[index]);
+		}
+	};
+	updateExclusiveOutputList();
+
 	auto preset_modified = false;
 	auto preset_count = FxModel::getModel().getPresetCount();
 	for (auto i = 0; i < preset_count; i++)
@@ -231,6 +244,8 @@ FxSettingsDialog::AudioSettingsPane::AudioSettingsPane() :
 	addAndMakeVisible(&output_preference_title_);
 	addAndMakeVisible(&output_preference_);
 	addAndMakeVisible(&prioritize_new_output_toggle_);
+	addAndMakeVisible(&exclusive_output_title_);
+	addAndMakeVisible(&exclusive_output_list_);
 	addAndMakeVisible(&reset_presets_button_);
 }
 
@@ -251,13 +266,18 @@ void FxSettingsDialog::AudioSettingsPane::resized()
     y = output_preference_.getBottom() + 10;
     prioritize_new_output_toggle_.setBounds(X_MARGIN, y, width, TOGGLE_BUTTON_HEIGHT);
 
+	y = prioritize_new_output_toggle_.getBottom() + 6;
+	exclusive_output_title_.setBounds(X_MARGIN, y, width, LABEL_HEIGHT);
+	y = exclusive_output_title_.getBottom() + 6;
+	exclusive_output_list_.setBounds(X_MARGIN, y, jmin(EXCLUSIVE_OUTPUT_LIST_WIDTH, width), EXCLUSIVE_OUTPUT_LIST_HEIGHT);
+
 	auto group_x = output_preference_title_.getX() - GROUP_MARGIN;
 	auto group_y = output_preference_title_.getY() - GROUP_MARGIN;
 	auto group_width = output_preference_.getRight() - group_x + GROUP_MARGIN;
-	auto group_height = prioritize_new_output_toggle_.getBottom() - group_y + GROUP_MARGIN;
+	auto group_height = exclusive_output_list_.getBottom() - group_y + GROUP_MARGIN;
 	output_preference_bounds_ = juce::Rectangle<float>(group_x, group_y, group_width, group_height);
 
-	y = prioritize_new_output_toggle_.getBottom() + 30;
+	y = exclusive_output_list_.getBottom() + 30;
 	resizeResetButton(X_MARGIN, y);
 }
 
@@ -281,6 +301,9 @@ void FxSettingsDialog::AudioSettingsPane::setText()
 	output_preference_title_.setText(TRANS("Output Device Preference"), NotificationType::dontSendNotification);
 
 	prioritize_new_output_toggle_.setButtonText(TRANS("Prioritize new output devices"));
+
+	exclusive_output_title_.setFont(theme.getNormalFont());
+	exclusive_output_title_.setText(TRANS("Use FxSound only on this device"), NotificationType::dontSendNotification);
 
 	reset_presets_button_.setButtonText(TRANS("Reset presets to factory defaults"));
 	resizeResetButton(reset_presets_button_.getX(), reset_presets_button_.getY());
@@ -319,7 +342,39 @@ void FxSettingsDialog::AudioSettingsPane::visibilityChanged()
 	if (isVisible())
 	{
 		output_preference_.update();
+		updateExclusiveOutputList();
     }
+}
+
+void FxSettingsDialog::AudioSettingsPane::updateExclusiveOutputList()
+{
+	auto exclusive_output = FxController::getInstance().getExclusiveOutput();
+
+	exclusive_output_names_.clear();
+	exclusive_output_list_.clear(NotificationType::dontSendNotification);
+
+	// The first item turns the restriction off
+	exclusive_output_names_.add("");
+	exclusive_output_list_.addItem(TRANS("All devices"), 1);
+
+	for (auto& output_device : FxModel::getModel().getOutputDevices())
+	{
+		String name = output_device.deviceFriendlyName.c_str();
+		if (!exclusive_output_names_.contains(name))
+		{
+			exclusive_output_names_.add(name);
+			exclusive_output_list_.addItem(name, exclusive_output_names_.size());
+		}
+	}
+
+	// Keep the selected device in the list while it is disconnected
+	if (exclusive_output.isNotEmpty() && !exclusive_output_names_.contains(exclusive_output))
+	{
+		exclusive_output_names_.add(exclusive_output);
+		exclusive_output_list_.addItem(exclusive_output, exclusive_output_names_.size());
+	}
+
+	exclusive_output_list_.setSelectedItemIndex(jmax(0, exclusive_output_names_.indexOf(exclusive_output)), NotificationType::dontSendNotification);
 }
 
 void FxSettingsDialog::AudioSettingsPane::mouseEnter(const MouseEvent& mouse_event)

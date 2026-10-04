@@ -141,6 +141,8 @@ public:
     void setOutputName(const String& output_device_name);
     bool isNewOutputPrioritized();
     void setNewOutputPrioritized(bool prioritize_new_devices);
+	String getExclusiveOutput();
+	void setExclusiveOutput(const String& output_device_name);
 
 	FxThemeMode getThemeMode();
 	void setThemeMode(FxThemeMode mode);
@@ -238,6 +240,8 @@ private:
 	void sortByDeviceConfigPriority(std::vector<SoundDevice>& devices);
 
 	void powerOn(bool on);
+	bool isProcessingAllowed(const String& output_device_name);
+	void bypassOutput();
 
 	String getAutoSavePath() const;
     String getAutoSavePresetPath(const String& preset_name) const;
