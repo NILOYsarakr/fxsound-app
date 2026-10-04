@@ -1,5 +1,28 @@
 # FxSound
 
+> **This is a modified fork of [FxSound](https://github.com/fxsound2/fxsound-app)** that adds one new feature:
+> **"Use FxSound only on this device."** Everything else is the same as the official app.
+
+## What's new in this fork
+
+Official FxSound applies its effects and EQ to whichever output device you switch to. This fork lets you lock processing to **one device you choose**:
+
+- **On your chosen device**, FxSound processes the sound as usual.
+- **On any other device**, FxSound turns itself off completely, and that device plays normal, unprocessed sound from Windows.
+- **Switch back to your chosen device**, and processing resumes automatically.
+
+This works however you change devices: FxSound's output list, the keyboard shortcut, Windows sound settings, plugging in or unplugging a device, or the `--output` / `--power` [command line options](docs/COMMAND_LINE_OPTIONS.md).
+
+**How to use it:** open **Settings → Audio**, then pick a device under **"Use FxSound only on this device"**. Choosing **All devices** (the default) gives the original behavior.
+
+**Example:** EQ tuned for your headphones, while your monitor or TV speakers play untouched audio.
+
+**What changed:** see the [commit](https://github.com/NILOYsarakr/fxsound-app/commit/890b84e). Only the app's interface code is changed: `FxController` (when to process) and `FxSettingsDialog` (the device picker). The audio driver interface (`audiopassthru/`) and DSP engine (`dsp/`) are untouched.
+
+**Building:** same as the official instructions below. This fork is not an official FxSound release; it requires the normal FxSound installation for its audio driver.
+
+---
+
 FxSound is a digital audio program built for Windows PC's. The background processing, built on a high-fidelity audio engine, acts as a sort of digital soundcard for your system. This means that your signals will have the clean passthrough when FxSound is active. There are active effects for shaping and boosting your sound's volume, timbre, and equalization included on top of this clean processing, allowing you to customize and enhance your sound.
 
 ## General Information
